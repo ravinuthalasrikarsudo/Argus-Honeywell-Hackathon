@@ -1,0 +1,101 @@
+# ARGUS Day-6 :: argus_nav.rviz -- the AUTONOMOUS NAV view (docker/demo.sh --avoid).
+#
+# Tells the obstacle-avoidance story in one window, all in the `world` frame:
+#   * Occupancy map (/argus/map/points) -- the log-odds terrain the drone has
+#     fused from dense stereo as it flies, ray-carved + neighbour-filtered clean,
+#     and painted with the real camera colour (RGB8) so it reads as a photo-
+#     textured 3D scan of the warehouse rather than abstract voxels.
+#   * Flight trajectory (/argus/map/path) -- the actual course the map was built
+#     from, weaving the slalom; published by occupancy_mapper so it always matches
+#     the map (the raw /argus/vio/path is NOT shown: VINS drifts out of this low-
+#     parallax corridor and dragged the displayed course off into nowhere).
+#   * Drone (/argus/ground_truth/pose) -- the live drone marker.
+# Sensor-frame clouds (/argus/lidar/points, /argus/depth/points) and the drifting
+# raw VINS feature/odom/path topics are intentionally omitted; the fused map + the
+# mapper's own trajectory already tell the story in the world frame.
+Panels:
+  - Class: rviz_common/Displays
+    Name: Displays
+    Property Tree Widget:
+      Expanded: true
+    Help Height: 0
+Visualization Manager:
+  Class: ""
+  Displays:
+    - Class: rviz_default_plugins/Grid
+      Name: Grid
+      Enabled: true
+      Color: 120; 120; 130
+      Plane Cell Count: 30
+      Cell Size: 1
+      Reference Frame: <Fixed Frame>
+      Value: true
+    - Class: rviz_default_plugins/PointCloud2
+      Name: Occupancy map (fused terrain)
+      Enabled: true
+      Topic:
+        Value: /argus/map/points
+        Depth: 5
+        Reliability Policy: Best Effort
+        Durability Policy: Volatile
+      Style: Boxes
+      Size (m): 0.15
+      Color Transformer: RGB8
+      Decay Time: 0
+      Value: true
+    - Class: rviz_default_plugins/Path
+      Name: Flight trajectory
+      Enabled: true
+      Topic:
+        Value: /argus/map/path
+        Depth: 5
+        Reliability Policy: Reliable
+        Durability Policy: Transient Local
+      Color: 25; 255; 0
+      Line Style: Billboards
+      Line Width: 0.06
+      Value: true
+    - Class: rviz_default_plugins/Pose
+      Name: Drone
+      Enabled: true
+      Topic:
+        Value: /argus/ground_truth/pose
+        Depth: 10
+        Reliability Policy: Best Effort
+        Durability Policy: Volatile
+      Shape: Arrow
+      Color: 255; 25; 0
+      Shaft Length: 0.6
+      Head Length: 0.25
+      Value: true
+    - Class: rviz_default_plugins/TF
+      Name: TF
+      Enabled: true
+      Show Names: true
+      Marker Scale: 0.8
+      Value: true
+  Global Options:
+    Background Color: 25; 25; 30
+    Fixed Frame: world
+    Frame Rate: 30
+  Name: root
+  Tools:
+    - Class: rviz_default_plugins/MoveCamera
+    - Class: rviz_default_plugins/FocusCamera
+  Views:
+    Current:
+      Class: rviz_default_plugins/Orbit
+      Name: Current View
+      Distance: 26
+      Focal Point:
+        X: 14
+        Y: 0
+        Z: 1
+      Pitch: 0.65
+      Yaw: 1.35
+  Value: true
+Window Geometry:
+  Height: 900
+  Width: 1500
+  Hide Left Dock: false
+  Hide Right Dock: true

@@ -1,0 +1,26 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>argus_superpoint</name>
+  <version>0.3.0</version>
+  <description>
+    ARGUS learned-feature front-end (standalone). Runs SuperPoint (and
+    optionally SuperPoint+LightGlue) via ONNX Runtime on the RTX 4050, subscribes
+    to /argus/cam0/image_raw, and publishes keypoints on /argus/vio/keypoints
+    (sensor_msgs/PointCloud2) plus an annotated overlay image for RViz. Proves
+    learned features survive the low-texture Zone-B walls where Shi-Tomasi/KLT
+    starve.
+  </description>
+  <maintainer email="vittal.muku@gmail.com">vittal</maintainer>
+  <license>MIT</license>
+
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
+  <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>cv_bridge</exec_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>

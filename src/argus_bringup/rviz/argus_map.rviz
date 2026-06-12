@@ -1,0 +1,109 @@
+Panels:
+  - Class: rviz_common/Displays
+    Name: Displays
+    Property Tree Widget:
+      Expanded: true
+    Help Height: 0
+Visualization Manager:
+  Class: ""
+  Displays:
+    - Class: rviz_default_plugins/Grid
+      Name: Grid
+      Enabled: true
+      Color: 160; 160; 164
+      Plane Cell Count: 30
+      Cell Size: 1
+      Reference Frame: <Fixed Frame>
+      Value: true
+    - Class: rviz_default_plugins/PointCloud
+      Name: VIO map (point cloud)
+      Enabled: true
+      Topic:
+        Value: /argus/vio/point_cloud
+        Depth: 5
+        Reliability Policy: Best Effort
+        Durability Policy: Volatile
+      Style: Points
+      Size (Pixels): 4
+      Color: 255; 255; 0
+      Color Transformer: FlatColor
+      Decay Time: 600
+      Value: true
+    - Class: rviz_default_plugins/PointCloud
+      Name: VIO map (margin cloud)
+      Enabled: true
+      Topic:
+        Value: /argus/vio/margin_cloud
+        Depth: 5
+        Reliability Policy: Best Effort
+        Durability Policy: Volatile
+      Style: Points
+      Size (Pixels): 3
+      Color: 0; 200; 255
+      Color Transformer: FlatColor
+      Decay Time: 600
+      Value: true
+    - Class: rviz_default_plugins/TF
+      Name: TF
+      Enabled: true
+      Show Names: true
+      Marker Scale: 1
+      Value: true
+    - Class: rviz_default_plugins/Path
+      Name: VIO path
+      Enabled: true
+      Topic:
+        Value: /argus/vio/path
+        Depth: 5
+        Reliability Policy: Reliable
+        Durability Policy: Volatile
+      Color: 25; 255; 0
+      Line Style: Lines
+      Value: true
+    - Class: rviz_default_plugins/Path
+      Name: Loop closures
+      Enabled: true
+      Topic:
+        Value: /argus/vio/loop_closures
+        Depth: 5
+        Reliability Policy: Reliable
+        Durability Policy: Volatile
+      Color: 255; 85; 0
+      Line Style: Billboards
+      Line Width: 0.05
+      Value: true
+    - Class: rviz_default_plugins/Odometry
+      Name: VIO odom (drone)
+      Enabled: true
+      Topic:
+        Value: /argus/vio/odom
+        Depth: 10
+        Reliability Policy: Reliable
+        Durability Policy: Volatile
+      Keep: 1
+      Shape: Arrow
+      Value: true
+  Global Options:
+    Background Color: 30; 30; 35
+    Fixed Frame: world
+    Frame Rate: 30
+  Name: root
+  Tools:
+    - Class: rviz_default_plugins/MoveCamera
+  Views:
+    Current:
+      Class: rviz_default_plugins/Orbit
+      Name: Current View
+      Distance: 22
+      Focal Point:
+        X: 12
+        Y: 0
+        Z: 1
+      Pitch: 0.6
+      Yaw: 1.3
+  Value: true
+Window Geometry:
+  Height: 900
+  Width: 1500
+  Hide Left Dock: false
+  Hide Right Dock: false

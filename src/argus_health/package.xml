@@ -1,0 +1,28 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>argus_health</name>
+  <version>0.4.0</version>
+  <description>
+    ARGUS VIO health monitor. A standalone watchdog that derives
+    an argus_msgs/VIOHealth report from the live VINS-Fusion /argus/vio/* topics
+    (point-cloud size = inlier proxy, IMU-vs-optimized divergence = drift, IMU
+    variance + VIO speed = excitation) and publishes a recovery signal that holds
+    the drone when tracking is LOST -- e.g. when the Zone-B lights go out
+    (Scenario D). Does not patch or rebuild VINS; observes its public topics only.
+    Provides the ablation C3 "+recovery" behaviour over the C1 KLT baseline.
+  </description>
+  <maintainer email="vittal.muku@gmail.com">vittal</maintainer>
+  <license>MIT</license>
+
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>argus_msgs</exec_depend>
+  <exec_depend>nav_msgs</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>

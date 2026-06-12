@@ -1,0 +1,98 @@
+# ARGUS ROS <-> Gazebo (Harmonic) parameter_bridge config.
+#   ros2 run ros_gz_bridge parameter_bridge --ros-args -p config_file:=<this>
+#
+# gz topics are emitted by model://argus_drone; their names already
+# match the /argus/* ROS contract, so most entries are 1:1 pass-throughs.
+# Frozen-contract deviations applied at this layer:
+#   #2  /clock bridged to BOTH ros /clock (use_sim_time) and schema /argus/clock.
+#   #3  cam1 baseline: gz leaves projection P[3]=0; the right CameraInfo is bridged
+#       to an intermediate *_gz topic, then camera_info_patch republishes
+#       /argus/cam1/camera_info with P[3] = -fx*baseline = -76.8.
+#   #4  ground truth is a POSE TOPIC (gz model pose -> PoseStamped), NOT a TF edge.
+# Type prefix is gz.msgs.* (Harmonic build, ros_gz_bridge 0.244.12).
+
+# ---- Sim clock (deviation #2) -------------------------------------------------
+- ros_topic_name: "/clock"
+  gz_topic_name: "/clock"
+  ros_type_name: "rosgraph_msgs/msg/Clock"
+  gz_type_name: "gz.msgs.Clock"
+  direction: GZ_TO_ROS
+
+- ros_topic_name: "/argus/clock"
+  gz_topic_name: "/clock"
+  ros_type_name: "rosgraph_msgs/msg/Clock"
+  gz_type_name: "gz.msgs.Clock"
+  direction: GZ_TO_ROS
+
+# ---- IMU (250 Hz) -------------------------------------------------------------
+- ros_topic_name: "/argus/imu"
+  gz_topic_name: "/argus/imu"
+  ros_type_name: "sensor_msgs/msg/Imu"
+  gz_type_name: "gz.msgs.IMU"
+  direction: GZ_TO_ROS
+
+# ---- Stereo images (30 Hz) ----------------------------------------------------
+- ros_topic_name: "/argus/cam0/image_raw"
+  gz_topic_name: "/argus/cam0/image_raw"
+  ros_type_name: "sensor_msgs/msg/Image"
+  gz_type_name: "gz.msgs.Image"
+  direction: GZ_TO_ROS
+
+- ros_topic_name: "/argus/cam1/image_raw"
+  gz_topic_name: "/argus/cam1/image_raw"
+  ros_type_name: "sensor_msgs/msg/Image"
+  gz_type_name: "gz.msgs.Image"
+  direction: GZ_TO_ROS
+
+# ---- Camera info --------------------------------------------------------------
+# cam0 (left) = stereo reference: P[3]=0 is correct, pass through unchanged.
+- ros_topic_name: "/argus/cam0/camera_info"
+  gz_topic_name: "/argus/cam0/camera_info"
+  ros_type_name: "sensor_msgs/msg/CameraInfo"
+  gz_type_name: "gz.msgs.CameraInfo"
+  direction: GZ_TO_ROS
+
+# cam1 (right): bridge raw to *_gz; camera_info_patch fixes P[3] (deviation #3)
+# and republishes /argus/cam1/camera_info.
+- ros_topic_name: "/argus/cam1/camera_info_gz"
+  gz_topic_name: "/argus/cam1/camera_info"
+  ros_type_name: "sensor_msgs/msg/CameraInfo"
+  gz_type_name: "gz.msgs.CameraInfo"
+  direction: GZ_TO_ROS
+
+# ---- Ground truth (deviation #4: a topic, NOT TF) -----------------------------
+- ros_topic_name: "/argus/ground_truth/pose"
+  gz_topic_name: "/model/argus_drone/pose"
+  ros_type_name: "geometry_msgs/msg/PoseStamped"
+  gz_type_name: "gz.msgs.Pose"
+  direction: GZ_TO_ROS
+
+# ---- Kinematic command input: ROS Twist -> gz VelocityControl -----------------
+- ros_topic_name: "/argus/cmd_vel"
+  gz_topic_name: "/model/argus_drone/cmd_vel"
+  ros_type_name: "geometry_msgs/msg/Twist"
+  gz_type_name: "gz.msgs.Twist"
+  direction: ROS_TO_GZ
+
+# ---- 3D LiDAR (10 Hz) -----------------------------------------
+# gpu_lidar publishes a LaserScan on <topic> and a PointCloudPacked on
+# <topic>/points. The point cloud is the obstacle/mapping input; the scan is kept
+# for lightweight horizontal-ring consumers / RViz.
+- ros_topic_name: "/argus/lidar/points"
+  gz_topic_name: "/argus/lidar/points"
+  ros_type_name: "sensor_msgs/msg/PointCloud2"
+  gz_type_name: "gz.msgs.PointCloudPacked"
+  direction: GZ_TO_ROS
+
+- ros_topic_name: "/argus/lidar/scan"
+  gz_topic_name: "/argus/lidar"
+  ros_type_name: "sensor_msgs/msg/LaserScan"
+  gz_type_name: "gz.msgs.LaserScan"
+  direction: GZ_TO_ROS
+
+# ---- Downward rangefinder / altimeter (1-ray LaserScan, 20 Hz) ----------------
+- ros_topic_name: "/argus/rangefinder"
+  gz_topic_name: "/argus/rangefinder"
+  ros_type_name: "sensor_msgs/msg/LaserScan"
+  gz_type_name: "gz.msgs.LaserScan"
+  direction: GZ_TO_ROS

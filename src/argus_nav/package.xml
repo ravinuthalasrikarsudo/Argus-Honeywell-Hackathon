@@ -1,0 +1,34 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>argus_nav</name>
+  <version>0.6.0</version>
+  <description>
+    ARGUS navigation pillar: dense stereo perception + reactive obstacle
+    avoidance, built additively on the frozen contract. The stereo_depth
+    node turns the existing cam0/cam1 pair into a dense depth image and an
+    outlier-filtered 3D point cloud (block-matching disparity -> reprojection ->
+    statistical outlier removal). The reactive_avoider node consumes that cloud
+    as a live obstacle field and drives the holonomic kinematic drone down the
+    corridor with a potential-field planner (goal attraction + obstacle
+    repulsion -> /argus/cmd_vel), so the drone navigates the enriched world and
+    weaves around in-path obstacles without a scripted path. Consumes only the
+    public contract topics and adds new /argus/depth/* and /argus/nav/* topics; it
+    does not change any frozen interface.
+  </description>
+  <maintainer email="vittal.muku@gmail.com">vittal</maintainer>
+  <license>MIT</license>
+
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>nav_msgs</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
+  <exec_depend>message_filters</exec_depend>
+  <exec_depend>python3-opencv</exec_depend>
+  <exec_depend>python3-numpy</exec_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>

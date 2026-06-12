@@ -1,0 +1,96 @@
+%YAML:1.0
+
+#==============================================================================
+# ARGUS VINS-Fusion stereo-inertial config.
+# Matches the frozen ARGUS sim contract (cameras, IMU, frames, baseline).
+#==============================================================================
+
+#--- sensor set: 1 IMU + 2 cameras (stereo-inertial) ---
+imu: 1
+num_of_cam: 2
+
+#--- input topics (ARGUS schema) ---
+imu_topic: "/argus/imu"
+image0_topic: "/argus/cam0/image_raw"
+image1_topic: "/argus/cam1/image_raw"
+output_path: "/home/vittal/argus/data/vio_output/"
+
+#--- per-camera intrinsics (same dir as this file) ---
+cam0_calib: "argus_cam0_pinhole.yaml"
+cam1_calib: "argus_cam1_pinhole.yaml"
+image_width: 1280
+image_height: 720
+
+#--- no GPU acceleration on the VINS path ---
+use_gpu: 0
+use_gpu_acc_flow: 0
+use_gpu_ceres: 0
+
+#--- extrinsics: exact from the URDF, so trust them (no online estimation) ---
+estimate_extrinsic: 0
+
+# body (IMU) frame = FLU (x fwd, y left, z up). Camera optical frame = RDF.
+# R_body_cam rows = (0,0,1)/(-1,0,0)/(0,-1,0); translation = cam_link position.
+# cam0 = LEFT at (+0.10,+0.06,0); cam1 = RIGHT at (+0.10,-0.06,0). Baseline 0.12 m.
+body_T_cam0: !!opencv-matrix
+   rows: 4
+   cols: 4
+   dt: d
+   data: [ 0.0,  0.0,  1.0,  0.10,
+          -1.0,  0.0,  0.0,  0.06,
+           0.0, -1.0,  0.0,  0.0,
+           0.0,  0.0,  0.0,  1.0 ]
+
+body_T_cam1: !!opencv-matrix
+   rows: 4
+   cols: 4
+   dt: d
+   data: [ 0.0,  0.0,  1.0,  0.10,
+          -1.0,  0.0,  0.0, -0.06,
+           0.0, -1.0,  0.0,  0.0,
+           0.0,  0.0,  0.0,  1.0 ]
+
+#--- threading ---
+# 0 = single-threaded synchronous processing -> DETERMINISTIC, reproducible offline
+# eval. With 1, the tracker/estimator threads race under bag replay and the init SFM
+# window sees a timing-dependent subset of frames -> non-deterministic init lottery on
+# the low-parallax corridor (same bag gave 0.73% one run, 33% another). Pinned 0.
+multiple_thread: 0
+
+#--- feature tracker ---
+max_cnt: 250
+min_dist: 20
+freq: 10                # tracking publish rate (Hz); >=10 for good estimation
+F_threshold: 1.0        # RANSAC F-matrix threshold (px)
+show_track: 1           # publish annotated tracking image (/argus/vio/image_track)
+flow_back: 1            # fwd-bwd optical flow check (improves match quality)
+
+#--- back-end optimization (real-time bounded) ---
+max_solver_time: 0.15
+max_num_iterations: 15
+keyframe_parallax: 2.0  # corridor features are far -> tiny motion parallax;
+                        # at 8.0 VINS made keyframes only ~0.32 Hz (every 3 s), which
+                        # starved loop_fusion's DBoW DB (0 loop candidates) and under-
+                        # constrained the back-end. 2.0 -> ~4x denser keyframes:
+                        # populates the loop DB AND tightens odometry. (was 8.0 / 10.0)
+
+#--- IMU noise (robust EuRoC values) ---
+# Tune #1 lowered these ~5x (acc_n 4e-4): it won on the smooth straight run but
+# made the IMU factors knife-edge stiff -> Ceres NaN/Inf blowup on the multi-lap
+# turnarounds (velocity reversals). Reverted to robust EuRoC noise: numerically
+# stable across aggressive motion. On the long path, loop closure (not IMU
+# stiffness) bounds drift, so robustness wins over the marginal straight gain.
+acc_n: 0.002            # accel noise density   (EuRoC; robust)
+gyr_n: 0.00016968       # gyro  noise density
+acc_w: 0.003            # accel random-walk
+gyr_w: 0.000019393      # gyro  random-walk
+g_norm: 9.8             # sim gravity (IMU reads az=+9.8; deviation: NOT 9.81)
+
+#--- camera-IMU time sync (sim is hardware-synced) ---
+estimate_td: 0
+td: 0.0
+
+#--- loop closure ---
+load_previous_pose_graph: 0
+pose_graph_save_path: "/home/vittal/argus/data/vio_output/pose_graph/"
+save_image: 0

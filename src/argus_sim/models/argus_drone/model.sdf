@@ -1,0 +1,260 @@
+<?xml version="1.0" ?>
+<!--
+  ARGUS Day-1 :: argus_drone/model.sdf
+  Kinematic stereo + IMU drone for VIO. Gazebo Harmonic (gz-sim8), SDF 1.10.
+
+  FRAME / UNITS (frozen contract): SI units, body frame = ENU/FLU at spawn.
+    +X = forward, +Y = left, +Z = up. Cameras look down +X.
+    Kinematic tree:  base_link --(fixed)--> cam0_link  (+Y, "left")
+                     base_link --(fixed)--> cam1_link  (-Y, "right")
+                     base_link --(fixed)--> imu_link   (coincident, body center)
+
+  STEREO (deviation #3): baseline = 0.12 m. cam0 @ y=+0.06 (left), cam1 @ y=-0.06
+    (right). Both 1280x720, hfov=90deg -> fx=fy=640, cx=640, cy=360. Gazebo does
+    NOT encode the stereo baseline; Phase-5 bridge sets cam1 CameraInfo.P[3] =
+    -fx*baseline = -640*0.12 = -76.8.
+
+  KINEMATIC MOTION: no thrust/aero. Per-link gravity disabled; the body is driven
+    directly by gz-sim VelocityControl (cmd_vel twist). Ground truth is published
+    as a POSE TOPIC (deviation #4: not TF) by PosePublisher.
+
+  GZ TOPICS emitted by this model (names already match the /argus/* ROS contract,
+  so the Phase-5 bridge is a 1:1 pass-through; gz derives each camera_info topic
+  from its image topic's parent namespace, so the image topic MUST be one level
+  deep -- argus/camN/image_raw -- or both cameras collide on argus/camera_info):
+    images      :  argus/cam0/image_raw , argus/cam1/image_raw   (30 Hz)
+    cam info    :  argus/cam0/camera_info , argus/cam1/camera_info
+    imu         :  argus/imu                 (250 Hz)
+    lidar (D6)  :  argus/lidar (LaserScan) , argus/lidar/points (PointCloudPacked, 10 Hz)
+    rangefinder :  argus/rangefinder        (1-ray LaserScan, down, 20 Hz)
+    ground truth:  /model/argus_drone/pose   (100 Hz, gz.msgs.Pose: world->body)
+    cmd_vel     :  /model/argus_drone/cmd_vel (gz.msgs.Twist, kinematic input)
+-->
+<sdf version="1.10">
+  <model name="argus_drone">
+    <self_collide>false</self_collide>
+
+    <!-- ===================== Body ===================== -->
+    <!-- Canonical link at the model origin: model world pose == base_link pose. -->
+    <link name="base_link">
+      <gravity>false</gravity>            <!-- kinematic: held by VelocityControl, not physics -->
+      <inertial>
+        <mass>1.5</mass>
+        <inertia>
+          <ixx>0.0117</ixx><iyy>0.0117</iyy><izz>0.0225</izz>
+          <ixy>0</ixy><ixz>0</ixz><iyz>0</iyz>
+        </inertia>
+      </inertial>
+
+      <!-- Compact body shell. -->
+      <collision name="body_col">
+        <geometry><box><size>0.30 0.30 0.06</size></box></geometry>
+      </collision>
+      <visual name="body_vis">
+        <geometry><box><size>0.30 0.30 0.06</size></box></geometry>
+        <material><ambient>0.10 0.10 0.12 1</ambient><diffuse>0.18 0.18 0.22 1</diffuse><specular>0.2 0.2 0.2 1</specular></material>
+      </visual>
+      <!-- Forward camera bar (cosmetic landmark for "front"). -->
+      <visual name="cam_bar_vis">
+        <pose>0.10 0 0 0 0 0</pose>
+        <geometry><box><size>0.04 0.18 0.04</size></box></geometry>
+        <material><ambient>0.05 0.05 0.05 1</ambient><diffuse>0.12 0.12 0.12 1</diffuse></material>
+      </visual>
+    </link>
+
+    <!-- ===================== Left camera (cam0) ===================== -->
+    <link name="cam0_link">
+      <pose>0.10 0.06 0 0 0 0</pose>     <!-- +Y = left -->
+      <gravity>false</gravity>
+      <inertial>
+        <mass>0.02</mass>
+        <inertia><ixx>1e-5</ixx><iyy>1e-5</iyy><izz>1e-5</izz><ixy>0</ixy><ixz>0</ixz><iyz>0</iyz></inertia>
+      </inertial>
+      <visual name="cam0_vis">
+        <geometry><box><size>0.03 0.03 0.03</size></box></geometry>
+        <material><ambient>0.0 0.15 0.0 1</ambient><diffuse>0.0 0.55 0.1 1</diffuse></material>
+      </visual>
+      <sensor name="cam0" type="camera">
+        <pose>0 0 0 0 0 0</pose>          <!-- looks down +X -->
+        <always_on>1</always_on>
+        <update_rate>15</update_rate>   <!-- Day-6: 30->15. Caps RTF~1 framerate spikes that
+                                             overwhelm single-thread VINS (multiple_thread:0);
+                                             15Hz > VINS freq:10, ample for 0.8 m/s flight. -->
+
+        <topic>argus/cam0/image_raw</topic>          <!-- -> camera_info @ argus/cam0/camera_info -->
+        <gz_frame_id>cam0_optical_frame</gz_frame_id>
+        <camera>
+          <horizontal_fov>1.5707963267948966</horizontal_fov>  <!-- 90 deg -> fx=fy=640 @ 1280px -->
+          <image><width>1280</width><height>720</height><format>R8G8B8</format></image>
+          <clip><near>0.05</near><far>50.0</far></clip>
+          <!-- Day-1 foundation: noise-free. VIO-phase tuning adds a <noise> block here. -->
+        </camera>
+      </sensor>
+    </link>
+    <joint name="cam0_joint" type="fixed">
+      <parent>base_link</parent>
+      <child>cam0_link</child>
+    </joint>
+
+    <!-- ===================== Right camera (cam1) ===================== -->
+    <link name="cam1_link">
+      <pose>0.10 -0.06 0 0 0 0</pose>    <!-- -Y = right (baseline 0.12 m from cam0) -->
+      <gravity>false</gravity>
+      <inertial>
+        <mass>0.02</mass>
+        <inertia><ixx>1e-5</ixx><iyy>1e-5</iyy><izz>1e-5</izz><ixy>0</ixy><ixz>0</ixz><iyz>0</iyz></inertia>
+      </inertial>
+      <visual name="cam1_vis">
+        <geometry><box><size>0.03 0.03 0.03</size></box></geometry>
+        <material><ambient>0.15 0.0 0.0 1</ambient><diffuse>0.55 0.0 0.1 1</diffuse></material>
+      </visual>
+      <sensor name="cam1" type="camera">
+        <pose>0 0 0 0 0 0</pose>
+        <always_on>1</always_on>
+        <update_rate>15</update_rate>   <!-- Day-6: 30->15. Caps RTF~1 framerate spikes that
+                                             overwhelm single-thread VINS (multiple_thread:0);
+                                             15Hz > VINS freq:10, ample for 0.8 m/s flight. -->
+
+        <topic>argus/cam1/image_raw</topic>          <!-- -> camera_info @ argus/cam1/camera_info -->
+        <gz_frame_id>cam1_optical_frame</gz_frame_id>
+        <camera>
+          <horizontal_fov>1.5707963267948966</horizontal_fov>
+          <image><width>1280</width><height>720</height><format>R8G8B8</format></image>
+          <clip><near>0.05</near><far>50.0</far></clip>
+        </camera>
+      </sensor>
+    </link>
+    <joint name="cam1_joint" type="fixed">
+      <parent>base_link</parent>
+      <child>cam1_link</child>
+    </joint>
+
+    <!-- ===================== IMU ===================== -->
+    <!-- Coincident with body center; IMU data expressed in imu_link (body-aligned, not optical). -->
+    <link name="imu_link">
+      <pose>0 0 0 0 0 0</pose>
+      <gravity>false</gravity>
+      <inertial>
+        <mass>0.01</mass>
+        <inertia><ixx>1e-6</ixx><iyy>1e-6</iyy><izz>1e-6</izz><ixy>0</ixy><ixz>0</ixz><iyz>0</iyz></inertia>
+      </inertial>
+      <sensor name="imu" type="imu">
+        <always_on>1</always_on>
+        <update_rate>250</update_rate>     <!-- matches 250 Hz physics; IMU <= physics rate -->
+        <topic>argus/imu</topic>
+        <gz_frame_id>imu_link</gz_frame_id>
+        <imu>
+          <!-- Day-1 foundation: noise-free (accel reads ~+9.8 m/s^2 on +Z at rest).
+               VIO-phase tuning adds <angular_velocity>/<linear_acceleration> noise here. -->
+        </imu>
+      </sensor>
+    </link>
+    <joint name="imu_joint" type="fixed">
+      <parent>base_link</parent>
+      <child>imu_link</child>
+    </joint>
+
+    <!-- ===================== 3D LiDAR (Day-6 Pillar 4) ===================== -->
+    <!-- gpu_lidar: GPS-free obstacle sensing that complements stereo where it is
+         weak (textureless Zone-B walls). gz publishes a LaserScan on <topic> and a
+         PointCloudPacked on <topic>/points; the bridge maps the latter to
+         /argus/lidar/points (sensor_msgs/PointCloud2). Mounted on a short mast so
+         it has a clear 360 deg horizontal sweep clear of the body shell. -->
+    <link name="lidar_link">
+      <pose>0 0 0.12 0 0 0</pose>
+      <gravity>false</gravity>
+      <inertial>
+        <mass>0.05</mass>
+        <inertia><ixx>1e-5</ixx><iyy>1e-5</iyy><izz>1e-5</izz><ixy>0</ixy><ixz>0</ixz><iyz>0</iyz></inertia>
+      </inertial>
+      <visual name="lidar_vis">
+        <geometry><cylinder><radius>0.035</radius><length>0.05</length></cylinder></geometry>
+        <material><ambient>0.05 0.05 0.05 1</ambient><diffuse>0.1 0.1 0.12 1</diffuse></material>
+      </visual>
+      <sensor name="lidar3d" type="gpu_lidar">
+        <pose>0 0 0 0 0 0</pose>
+        <always_on>1</always_on>
+        <update_rate>10</update_rate>
+        <topic>argus/lidar</topic>
+        <gz_frame_id>lidar_link</gz_frame_id>
+        <lidar>
+          <scan>
+            <horizontal>
+              <samples>360</samples>
+              <resolution>1</resolution>
+              <min_angle>-3.14159265</min_angle>
+              <max_angle>3.14159265</max_angle>
+            </horizontal>
+            <vertical>
+              <samples>16</samples>
+              <resolution>1</resolution>
+              <min_angle>-0.2618</min_angle>   <!-- -15 deg -->
+              <max_angle>0.2618</max_angle>     <!-- +15 deg -->
+            </vertical>
+          </scan>
+          <range>
+            <min>0.30</min>
+            <max>15.0</max>
+            <resolution>0.01</resolution>
+          </range>
+        </lidar>
+      </sensor>
+    </link>
+    <joint name="lidar_joint" type="fixed">
+      <parent>base_link</parent>
+      <child>lidar_link</child>
+    </joint>
+
+    <!-- ===================== Downward rangefinder (altimeter) ===================== -->
+    <!-- Single down-pointing beam for GPS-free altitude hold. +X is the lidar
+         boresight, so pitch +90 deg aims it at -Z (straight down). Publishes a
+         1-ray LaserScan on argus/rangefinder. -->
+    <link name="rangefinder_link">
+      <pose>0 0 -0.04 0 1.5708 0</pose>
+      <gravity>false</gravity>
+      <inertial>
+        <mass>0.01</mass>
+        <inertia><ixx>1e-6</ixx><iyy>1e-6</iyy><izz>1e-6</izz><ixy>0</ixy><ixz>0</ixz><iyz>0</iyz></inertia>
+      </inertial>
+      <sensor name="rangefinder" type="gpu_lidar">
+        <pose>0 0 0 0 0 0</pose>
+        <always_on>1</always_on>
+        <update_rate>20</update_rate>
+        <topic>argus/rangefinder</topic>
+        <gz_frame_id>rangefinder_link</gz_frame_id>
+        <lidar>
+          <scan>
+            <horizontal><samples>1</samples><resolution>1</resolution><min_angle>0</min_angle><max_angle>0</max_angle></horizontal>
+            <vertical><samples>1</samples><resolution>1</resolution><min_angle>0</min_angle><max_angle>0</max_angle></vertical>
+          </scan>
+          <range><min>0.10</min><max>20.0</max><resolution>0.01</resolution></range>
+        </lidar>
+      </sensor>
+    </link>
+    <joint name="rangefinder_joint" type="fixed">
+      <parent>base_link</parent>
+      <child>rangefinder_link</child>
+    </joint>
+
+    <!-- ===================== Systems (travel with the model on spawn) ===================== -->
+    <!-- Kinematic drive: sets the model's twist directly from gz.msgs.Twist on
+         /model/argus_drone/cmd_vel. Holds zero velocity when idle (hover). -->
+    <plugin filename="gz-sim-velocity-control-system"
+            name="gz::sim::systems::VelocityControl"/>
+
+    <!-- Ground-truth pose (deviation #4: a topic, NOT a TF edge). Publishes the
+         model's world pose on /model/argus_drone/pose at 100 Hz. -->
+    <plugin filename="gz-sim-pose-publisher-system"
+            name="gz::sim::systems::PosePublisher">
+      <publish_link_pose>false</publish_link_pose>
+      <publish_sensor_pose>false</publish_sensor_pose>
+      <publish_collision_pose>false</publish_collision_pose>
+      <publish_visual_pose>false</publish_visual_pose>
+      <publish_nested_model_pose>true</publish_nested_model_pose>
+      <use_pose_vector_msg>false</use_pose_vector_msg>
+      <update_frequency>100</update_frequency>
+      <static_publisher>false</static_publisher>
+    </plugin>
+
+  </model>
+</sdf>

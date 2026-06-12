@@ -1,0 +1,90 @@
+%YAML:1.0
+
+#==============================================================================
+# ARGUS VINS-Fusion stereo-inertial config -- C2 (SuperPoint front-end).
+# Identical to argus_stereo_imu_config.yaml (C1/KLT baseline) EXCEPT use_superpoint:1.
+# Keeping them as separate files makes the C1-vs-C2 ablation apples-to-apples:
+# same intrinsics, extrinsics, IMU noise, solver + keyframe params -- the ONLY
+# difference is where new features come from (Harris goodFeaturesToTrack vs the
+# learned SuperPoint detector feeding the same LK tracker). See [[argus-day3-progress]].
+#==============================================================================
+
+#--- sensor set: 1 IMU + 2 cameras (stereo-inertial) ---
+imu: 1
+num_of_cam: 2
+
+#--- input topics (ARGUS schema) ---
+imu_topic: "/argus/imu"
+image0_topic: "/argus/cam0/image_raw"
+image1_topic: "/argus/cam1/image_raw"
+output_path: "/home/vittal/argus/data/vio_output/"
+
+#--- per-camera intrinsics (same dir as this file) ---
+cam0_calib: "argus_cam0_pinhole.yaml"
+cam1_calib: "argus_cam1_pinhole.yaml"
+image_width: 1280
+image_height: 720
+
+#--- no GPU acceleration on the VINS LK path (SuperPoint runs on the dGPU via ONNX,
+#    VINS LK/Ceres stay on CPU -> the two do not contend for the GPU) ---
+use_gpu: 0
+use_gpu_acc_flow: 0
+use_gpu_ceres: 0
+
+#--- extrinsics: exact from the URDF, so trust them (no online estimation) ---
+estimate_extrinsic: 0
+
+# body (IMU) frame = FLU (x fwd, y left, z up). Camera optical frame = RDF.
+# R_body_cam rows = (0,0,1)/(-1,0,0)/(0,-1,0); translation = cam_link position.
+# cam0 = LEFT at (+0.10,+0.06,0); cam1 = RIGHT at (+0.10,-0.06,0). Baseline 0.12 m.
+body_T_cam0: !!opencv-matrix
+   rows: 4
+   cols: 4
+   dt: d
+   data: [ 0.0,  0.0,  1.0,  0.10,
+          -1.0,  0.0,  0.0,  0.06,
+           0.0, -1.0,  0.0,  0.0,
+           0.0,  0.0,  0.0,  1.0 ]
+
+body_T_cam1: !!opencv-matrix
+   rows: 4
+   cols: 4
+   dt: d
+   data: [ 0.0,  0.0,  1.0,  0.10,
+          -1.0,  0.0,  0.0, -0.06,
+           0.0, -1.0,  0.0,  0.0,
+           0.0,  0.0,  0.0,  1.0 ]
+
+#--- threading ---
+multiple_thread: 1
+
+#--- feature tracker ---
+max_cnt: 250            # same cap as C1 (apples-to-apples)
+min_dist: 20            # same spacing as C1 (used to mask SuperPoint kpts too)
+use_superpoint: 1       # ARGUS C2: seed new features from /argus/vio/keypoints
+                        # (the LK tracker, IDs, stereo, RANSAC, IMU are unchanged)
+freq: 10                # tracking publish rate (Hz); >=10 for good estimation
+F_threshold: 1.0        # RANSAC F-matrix threshold (px)
+show_track: 1           # publish annotated tracking image (/argus/vio/image_track)
+flow_back: 1            # fwd-bwd optical flow check (improves match quality)
+
+#--- back-end optimization (real-time bounded) ---
+max_solver_time: 0.15
+max_num_iterations: 15
+keyframe_parallax: 2.0  # corridor features are far -> tiny motion parallax (see C1 config)
+
+#--- IMU noise (robust EuRoC values; identical to C1) ---
+acc_n: 0.002            # accel noise density   (EuRoC; robust)
+gyr_n: 0.00016968       # gyro  noise density
+acc_w: 0.003            # accel random-walk
+gyr_w: 0.000019393      # gyro  random-walk
+g_norm: 9.8             # sim gravity (IMU reads az=+9.8; deviation: NOT 9.81)
+
+#--- camera-IMU time sync (sim is hardware-synced) ---
+estimate_td: 0
+td: 0.0
+
+#--- loop closure (off-path save disabled for now) ---
+load_previous_pose_graph: 0
+pose_graph_save_path: "/home/vittal/argus/data/vio_output/pose_graph/"
+save_image: 0
