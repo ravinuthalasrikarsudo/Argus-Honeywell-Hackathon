@@ -767,7 +767,7 @@ argus/
 <p align="center">
   <strong>Srikar Ravinuthala</strong><br/>
   <em>Department of Computer Science and Engineering</em><br/>
-  <a href="mailto:vittal.muku@gmail.com">vittal.muku@gmail.com</a>
+  <a href="mailto:ravinuthalasrikar@gmail.com">ravinuthalasrikar@gmail.com</a>
 </p>
 
 <p align="center">
