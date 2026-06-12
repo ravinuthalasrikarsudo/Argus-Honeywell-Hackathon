@@ -765,7 +765,7 @@ argus/
 ---
 
 <p align="center">
-  <strong>Vittal Mukunda</strong><br/>
+  <strong>Srikar Ravinuthala</strong><br/>
   <em>Department of Computer Science and Engineering</em><br/>
   <a href="mailto:vittal.muku@gmail.com">vittal.muku@gmail.com</a>
 </p>
