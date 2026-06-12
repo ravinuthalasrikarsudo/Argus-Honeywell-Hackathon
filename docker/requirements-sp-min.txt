@@ -1,0 +1,16 @@
+# ARGUS argus-sp venv — GPU subset only.
+# requirements-sp.txt is a full Ubuntu 22.04 system pip freeze (cloud-init,
+# ubuntu-pro-client, systemd-python, ...) and CANNOT be pip-installed in a clean
+# container. These are the only packages that actually matter for the SuperPoint
+# (C2) ONNX front-end; rclpy/numpy/etc come from --system-site-packages.
+# Versions pinned to match the original requirements-sp.txt freeze.
+onnxruntime-gpu==1.23.2
+opencv-python-headless==4.9.0.80
+numpy==1.26.4
+nvidia-cublas-cu12==12.9.2.10
+nvidia-cuda-nvrtc-cu12==12.9.86
+nvidia-cuda-runtime-cu12==12.9.79
+nvidia-cudnn-cu12==9.23.0.39
+nvidia-cufft-cu12==11.4.1.4
+nvidia-curand-cu12==10.3.10.19
+nvidia-nvjitlink-cu12==12.9.86

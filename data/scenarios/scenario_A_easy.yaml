@@ -1,0 +1,39 @@
+# ARGUS Scenario A — "easy" textured corridor (the drift GATE)
+# Drift target: < 1.5% over distance (Honeywell spec).
+#
+# Geometry note: Zone A is only 10m wide in the 30m corridor. We define A as a
+# straight forward flight through the full textured corridor (zones A->B->C),
+# which is textured throughout and gives ~23.5m of distance for a meaningful
+# drift%. Reuses the baseline sensor bag.
+
+name: A_easy
+description: >
+  Straight constant-velocity forward flight through the textured warehouse
+  corridor (zones A->B->C). This is the primary drift-target validation run.
+
+world: warehouse_corridor
+start_pose: [1.5, 0.0, 1.0]        # x,y,z (m), ENU; drone spawn
+heading: +x
+motion:
+  type: straight
+  cmd_vel: [0.5, 0.0, 0.0]         # m/s forward
+  stop_x: 25.0                     # fly until x ~= 25 m
+  distance_m: 23.5                 # approx path length
+
+# Data source: the baseline sensor bag IS Scenario A (full straight run).
+sensor_bag: data/bags/baseline_ABC
+vio_eval_bag: data/bags/vio_eval
+
+eval:
+  gt_topic: /argus/ground_truth/pose
+  vio_topic: /argus/vio/odom
+  align: yaw_translation_gauge     # 4-DOF gauge removal (straight-line safe)
+
+acceptance:
+  drift_pct_ate_max: 1.5           # NON-NEGOTIABLE Honeywell spec
+
+# Reproduce:
+#   bash scripts/record_baseline_bag.sh        # (already done -> baseline_ABC)
+#   bash scripts/run_vio_offline.sh            # baseline_ABC -> vio_eval
+#   ~/.venvs/argus-eval/bin/python scripts/run_eval.py \
+#       --bag data/bags/vio_eval --run-id <name>

@@ -1,0 +1,49 @@
+# ARGUS Scenario C — closed loop (loop-closure validation)
+# A loop closure fires on the return and visibly corrects drift.
+#
+# IMPLEMENTED AS A NO-YAW FORWARD/BACK SHUTTLE (fly_shuttle.py), not a U-turn loop.
+# Rationale: in-place 180-deg yaw U-turns DIVERGE VINS-Fusion (pure rotation gives
+# no translational parallax -> KLT loses all tracks -> Ceres NaN; observed:
+# t blew up to ~4000 m). A no-yaw shuttle always translates along the optical
+# axis (well-conditioned) and re-observes each place from the SAME viewpoint on
+# the return legs -- the ideal DBoW loop-closure cue. Multiple round trips
+# accumulate distance (long-segment drift) AND revisits (loop closure) in one run.
+
+name: C_loop
+description: >
+  No-yaw forward/back shuttle: 3 round trips x 16 m legs along the corridor
+  centreline (spawn x=1.5 <-> x=17.5), ~96 m accumulated travel. On each return
+  leg the drone re-observes earlier keyframes from the same viewpoint; loop_fusion
+  should detect + accept a loop and run 4-DoF pose-graph correction.
+
+world: warehouse_corridor
+start_pose: [1.5, 0.0, 1.0]
+heading: +x                        # held at 0 deg the entire flight (no yaw)
+motion:
+  type: shuttle_no_yaw
+  laps: 3                          # round trips (2 legs each = 6 legs)
+  leg_m: 16.0
+  speed: 0.5
+  holds: {y: 0.0, z: 1.0, yaw: 0.0}   # proportional GT-feedback centreline hold
+  distance_m: 96.0
+
+sensor_bag: data/bags/scenario_C_shuttle
+vio_eval_bag: data/bags/vio_eval_shuttle
+
+eval:
+  gt_topic: /argus/ground_truth/pose
+  vio_before_loop: /argus/vio/odom_optimized   # raw VINS estimate
+  vio_after_loop: /argus/vio/odom_loop         # pose-graph-corrected
+  align: yaw_translation_gauge                 # collinear shuttle -> 4-DOF gauge
+  loop_closure_topic: /argus/vio/loop_closures
+
+acceptance:
+  loop_closures_min: 1             # >= 1 accepted loop on the return legs
+  drift_corrected: true            # drift drops after pose-graph correction
+
+# Reproduce:
+#   bash scripts/record_scenario_C_shuttle.sh           # -> scenario_C_shuttle
+#   RATE=0.4 bash scripts/run_vio_loop_offline.sh \
+#       data/bags/scenario_C_shuttle data/bags/vio_eval_shuttle
+#   ~/.venvs/argus-eval/bin/python scripts/run_eval.py \
+#       --bag data/bags/vio_eval_shuttle --vio-topic /argus/vio/odom_loop --run-id C_after

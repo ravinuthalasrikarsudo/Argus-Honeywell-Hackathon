@@ -1,0 +1,32 @@
+digraph ARGUS {
+  rankdir=TB;
+  graph [splines=true, nodesep=0.55, ranksep=0.75, fontname="Helvetica", bgcolor="white", pad=0.3];
+  node  [shape=box, style="rounded,filled", fontname="Helvetica", fontsize=11, color="#34495e", penwidth=1.4, margin="0.18,0.10"];
+  edge  [fontname="Helvetica", fontsize=9, color="#566573", arrowsize=0.8];
+
+  /* ---- Simulation layer ---- */
+  sim   [label="Gazebo Harmonic  (gz-sim 8, dartsim @ 250 Hz)\nwarehouse_corridor.sdf  +  argus_drone\n(stereo + IMU + 3-D LiDAR + rangefinder)", fillcolor="#fdebd0", width=4.6];
+
+  /* ---- Bridge layer ---- */
+  bridge [label="argus_bringup\nros_gz parameter_bridge (9 entries)\n+ camera_info_patch  (cam1 P[3] = -76.8)", fillcolor="#d6eaf8", width=4.2];
+
+  /* ---- Estimation layer ---- */
+  sp    [label="argus_superpoint\nSuperPoint+LightGlue ONNX (CUDA EP)\nablation cell C2 (off by default)", fillcolor="#e8daef", width=3.4];
+  vio   [label="argus_vio\nVINS-Fusion stereo-inertial (Ceres 2.1)\nKLT/Harris front-end + loop_fusion (DBoW2)", fillcolor="#d5f5e3", width=3.8];
+  health[label="argus_health\nVIOHealth watchdog + recovery\n(INIT/NOMINAL/DEGRADED/LOST)", fillcolor="#fadbd8", width=3.4];
+
+  /* ---- Navigation layer ---- */
+  nav   [label="argus_nav\nstereo_depth (WLS-SGBM)  +  3-D LiDAR\n-> occupancy_mapper (log-odds RGB voxels)\n-> reactive_avoider (potential field -> Twist)", fillcolor="#d4e6f1", width=4.8];
+
+  /* ---- Edges ---- */
+  sim    -> bridge [label="  images / imu / pose\n  lidar / range (gz topics)"];
+  bridge -> sp     [label=" /argus/cam0 "];
+  bridge -> vio    [label=" /argus/cam{0,1}\n /argus/imu "];
+  sp     -> vio    [label=" /argus/vio/keypoints\n (C2 only) ", style=dashed];
+  vio    -> health [label=" /argus/vio/* "];
+  vio    -> nav    [label=" /argus/vio/odom\n (GPS-free pose) "];
+  bridge -> nav    [label=" /argus/lidar/points\n /argus/rangefinder ", constraint=false];
+  nav    -> sim    [label=" /argus/cmd_vel\n (Twist, FLU) ", color="#c0392b", penwidth=1.6, constraint=false];
+
+  { rank=same; sp; vio; health; }
+}

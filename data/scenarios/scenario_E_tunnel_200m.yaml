@@ -1,0 +1,52 @@
+# ARGUS Scenario E — 200 m tunnel circuit (the LITERAL spec gate)
+# Drift target: < 1.5% over 200 m (DP7 / Honeywell spec, at full distance).
+#
+# Geometry: one continuous CCW lap of the tunnel_circuit stadium —
+# two 70 m straights + two r=10 m semicircular end-caps = 202.83 m,
+# plus ~4 m overrun back onto the start straight so the DBoW pose graph
+# can close the loop exactly where drift is measured.
+#
+# Design rationale (Day 1-6 lessons baked into the WORLD, not the tuning):
+#   * segmented 5 m wall panels re-tile detail.png -> dense features everywhere
+#   * arch ribs every ~10 m -> near-field parallax for stereo triangulation
+#   * end-caps flown at wz = v/R = 0.08 rad/s WHILE translating -> yaw with
+#     parallax (never an in-place turn, which diverges VINS)
+#   * plain step-start init (the corridor-proven regime). A smooth vertical-
+#     sinusoid preamble was tried and is a DOCUMENTED NEGATIVE (day-7 log):
+#     vertical velocity zero-crossings during init corrupt the gravity init.
+
+name: E_tunnel_200m
+description: >
+  One continuous 202.8 m lap of a closed-circuit service tunnel, GPS-free,
+  ending back at the spawn for a loop-closure snap. Primary long-distance
+  drift-gate validation at the full 200 m specification distance.
+
+world: tunnel_circuit
+start_pose: [1.5, 0.0, 1.0]        # x,y,z (m), ENU; on the first straight
+heading: +x
+motion:
+  type: circuit
+  speed: 0.8                       # m/s cruise (project envelope max)
+  laps: 1
+  init: step-start                 # plain step start; --excite is a documented negative
+  distance_m: 206.8                # perimeter + overrun
+
+sensor_bag: data/bags/scenario_E_tunnel
+vio_eval_bag: data/bags/vio_eval_E
+
+eval:
+  gt_topic: /argus/ground_truth/pose
+  vio_topic: /argus/vio/odom_loop  # loop-corrected; also report odom_optimized
+  align: se3_umeyama               # full-rank trajectory (curves) -> SE(3) safe
+
+acceptance:
+  drift_pct_ate_max: 1.5           # at the FULL 200 m spec distance
+  min_path_length_m: 200.0
+
+# Reproduce:
+#   bash scripts/record_scenario_E_tunnel.sh            # sim -> sensor bag
+#   bash scripts/run_vio_loop_offline.sh \
+#       data/bags/scenario_E_tunnel data/bags/vio_eval_E # VINS + loop_fusion
+#   ~/.venvs/argus-eval/bin/python scripts/run_eval.py \
+#       --bag data/bags/vio_eval_E --run-id E_tunnel \
+#       --vio-topic /argus/vio/odom_loop --skip-start-m 2.0

@@ -1,0 +1,61 @@
+# ARGUS Scenario D — "lights-off" (health-monitor validation)
+# Proves the VIO health monitor detects a VIO failure when the Zone-B lights go
+# out, and that recovery engages.
+#
+# A forward traverse through zones A->B->C. Partway through Zone B the corridor
+# lights are killed: the stereo cameras go dark, feature tracking starves, VINS
+# degrades. The health monitor must flip NOMINAL -> LOST over the blackout and (in
+# the recovery configuration) raise the recovery signal.
+
+name: D_lights_off
+description: >
+  Straight forward flight with a Zone-B "lights-off" blackout mid-traverse. Tests
+  the argus_health monitor's detection of a VIO failure (NOMINAL -> LOST) and the
+  recovery response.
+
+world: warehouse_corridor
+start_pose: [1.5, 0.0, 1.0]        # x,y,z (m), ENU
+heading: +x
+motion:
+  type: straight
+  cmd_vel: [0.5, 0.0, 0.0]         # forward cruise (ramped)
+
+blackout:
+  zone: B
+  x_range: [10.0, 14.0]            # darken the stereo stream while GT x in this range
+  # Two interchangeable mechanisms (same physical effect on the estimator):
+  #  - LIVE: gz light_config kills all 6 ceiling lights + the directional fill
+  #          (scripts/blackout.sh, fired by scripts/run_scenario_D.sh / record_scenario_D.sh).
+  #  - SYNTHETIC (used for the evaluable artifact): darken the cam0/cam1 payloads
+  #          of the known-good lit baseline_ABC bag over the window
+  #          (scripts/make_scenario_D_synth.py). Deterministic; independent of the
+  #          live ogre2 render (which can regress to unlit frames).
+  method: synthetic_darkening
+  factor: 0.03
+
+# Data source: synthetic Scenario D (baseline_ABC darkened over Zone B).
+sensor_bag: data/bags/scenario_D
+
+ablation:
+  C1: recovery OFF (enable_recovery:=false) — monitor reports LOST, no action.
+  C3: recovery ON  (enable_recovery:=true)  — monitor flags recovery + (live) the
+      flight yields to a hold.
+
+eval:
+  health_topic: /argus/vio/health
+  recovery_topic: /argus/health/recovery_active
+  gt_topic: /argus/ground_truth/pose
+
+acceptance:
+  - status reaches LOST during the blackout window      # detection
+  - C3 recovery_activations > 0, C1 == 0                 # recovery response
+
+# Result (offline replay, 12.3 s blackout):
+#   NOMINAL (lit Zone A, ~100 inliers) -> LOST (blackout, ~0 inliers) -> recover.
+#   C3 recoveries=4 (time-held 75 s of flagged hold) vs C1 recoveries=0.
+#   VIO drifts ~89 m dead-reckoning through the dark (no loop closure to correct).
+#
+# Reproduce:
+#   ~/.venvs/argus-eval/bin/python scripts/make_scenario_D_synth.py --restore-x 14
+#   bash scripts/replay_scenario_D.sh c3   # and c1
+#   ~/.venvs/argus-eval/bin/python scripts/analyze_scenario_D.py offline_c3 offline_c1
